@@ -3,12 +3,9 @@
   "description": "Vanilla JS core script that embeds Dub's dashboards.",
   "version": "0.0.18",
   "sideEffects": false,
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist/**"
-  ],
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "build": "tsup",
     "lint": "eslint src/",

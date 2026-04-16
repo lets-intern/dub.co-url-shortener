@@ -27,6 +27,8 @@ module.exports = {
     "@dub/email",
     "@dub/ui",
     "@dub/utils",
+    "@dub/embed-core",
+    "@dub/embed-react",
     "@boxyhq/saml-jackson",
   ],
   outputFileTracingIncludes: {
