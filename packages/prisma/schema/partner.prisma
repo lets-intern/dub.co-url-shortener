@@ -103,7 +103,7 @@ model Partner {
   @@index(payoutMethodHash)
   @@index(cryptoWalletAddress)
   @@index(identityVerifiedAt)
-  @@fulltext([email, name, companyName]) // For full-text search
+
 }
 
 model PartnerInvite {
