@@ -25,6 +25,8 @@ module.exports = {
     "shiki",
     "@dub/prisma",
     "@dub/email",
+    "@dub/ui",
+    "@dub/utils",
     "@boxyhq/saml-jackson",
   ],
   outputFileTracingIncludes: {
