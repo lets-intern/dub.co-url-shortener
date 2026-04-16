@@ -29,7 +29,7 @@ interface CommissionTooltipDataProps {
 export const CommissionStatusBadges = {
   pending: {
     label: "Pending",
-    variant: "pending",
+    variant: "pending" as const,
     className: "text-content-attention bg-bg-attention",
     icon: CircleHalfDottedClock,
     tooltip: (data: CommissionTooltipDataProps) =>
@@ -39,7 +39,7 @@ export const CommissionStatusBadges = {
   },
   processed: {
     label: "Processed",
-    variant: "new",
+    variant: "new" as const,
     className: "text-content-info bg-bg-info",
     icon: CircleHalfDottedClock,
     tooltip: (data: CommissionTooltipDataProps) => {
@@ -55,14 +55,14 @@ export const CommissionStatusBadges = {
   },
   paid: {
     label: "Paid",
-    variant: "success",
+    variant: "success" as const,
     className: "text-content-success bg-bg-success",
     icon: CircleCheck,
     tooltip: (_: CommissionTooltipDataProps) => null,
   },
   fraud: {
     label: "Fraud",
-    variant: "error",
+    variant: "error" as const,
     className: "text-content-error bg-bg-error",
     icon: ShieldAlert,
     tooltip: (data: CommissionTooltipDataProps) => {
@@ -79,7 +79,7 @@ export const CommissionStatusBadges = {
   },
   duplicate: {
     label: "Duplicate",
-    variant: "error",
+    variant: "error" as const,
     className: "text-content-error bg-bg-error",
     icon: Duplicate,
     tooltip: (data: CommissionTooltipDataProps) => {
@@ -96,7 +96,7 @@ export const CommissionStatusBadges = {
   },
   refunded: {
     label: "Refunded",
-    variant: "error",
+    variant: "error" as const,
     className: "text-content-error bg-bg-error",
     icon: CircleXmark,
     tooltip: (data: CommissionTooltipDataProps) => {
@@ -113,7 +113,7 @@ export const CommissionStatusBadges = {
   },
   canceled: {
     label: "Canceled",
-    variant: "neutral",
+    variant: "neutral" as const,
     className: "text-content-muted bg-bg-muted",
     icon: CircleXmark,
     tooltip: (data: CommissionTooltipDataProps) => {
@@ -131,7 +131,7 @@ export const CommissionStatusBadges = {
   // extra status for hold (not in OpenAPI spec)
   hold: {
     label: "On Hold",
-    variant: "error",
+    variant: "error" as const,
     className: "text-content-error bg-bg-error",
     icon: ShieldAlert,
     tooltip: (data: CommissionTooltipDataProps) => {
