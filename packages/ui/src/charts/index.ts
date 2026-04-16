@@ -1,3 +1,5 @@
+"use client";
+
 export * from "./areas";
 export * from "./bars";
 export * from "./chart-context";
