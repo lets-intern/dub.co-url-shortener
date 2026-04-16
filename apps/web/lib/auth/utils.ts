@@ -1,7 +1,7 @@
-import { getServerSession } from "next-auth/next";
+import { prisma } from "@dub/prisma";
 import { NextRequest } from "next/server";
 import { DubApiError } from "../api/errors";
-import { authOptions } from "./options";
+import { createClient } from "../supabase/server";
 
 export interface Session {
   user: {
@@ -15,8 +15,64 @@ export interface Session {
   };
 }
 
-export const getSession = async () => {
-  return getServerSession(authOptions) as Promise<Session>;
+export const getSession = async (): Promise<Session | null> => {
+  const supabase = await createClient();
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
+
+  if (!supabaseUser?.email) {
+    return null;
+  }
+
+  let user = await prisma.user.findUnique({
+    where: { email: supabaseUser.email },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      isMachine: true,
+      defaultWorkspace: true,
+      defaultPartnerId: true,
+    },
+  });
+
+  // Auto-create Prisma user if they signed up via Supabase Auth
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: supabaseUser.email,
+        name:
+          supabaseUser.user_metadata?.full_name ||
+          supabaseUser.user_metadata?.name ||
+          null,
+        image: supabaseUser.user_metadata?.avatar_url || null,
+        emailVerified: new Date(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        isMachine: true,
+        defaultWorkspace: true,
+        defaultPartnerId: true,
+      },
+    });
+  }
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name || "",
+      email: user.email || "",
+      image: user.image || undefined,
+      isMachine: user.isMachine,
+      defaultWorkspace: user.defaultWorkspace || undefined,
+      defaultPartnerId: user.defaultPartnerId || undefined,
+    },
+  };
 };
 
 export const getAuthTokenOrThrow = (
@@ -35,11 +91,3 @@ export const getAuthTokenOrThrow = (
 
   return authorizationHeader.replace(`${type} `, "");
 };
-
-export function generateOTP() {
-  // Generate a random number between 0 and 999999
-  const randomNumber = Math.floor(Math.random() * 1000000);
-
-  // Pad the number with leading zeros if necessary to ensure it is always 6 digits
-  return randomNumber.toString().padStart(6, "0");
-}

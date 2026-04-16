@@ -131,8 +131,8 @@ export function PlanSelector({ product }: { product: OnboardingProduct }) {
                         <span>Billed yearly</span>
                         <Badge
                           variant="outline"
-                          size="sm"
                           className={cn(
+                            "text-xs",
                             "animate-in fade-in-0 slide-in-from-right-2 duration-150",
                             period === "monthly" && "-translate-x-2 opacity-0",
                           )}

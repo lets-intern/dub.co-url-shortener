@@ -27,11 +27,13 @@ export function CopyButton({
   className,
   icon,
   successMessage,
+  onCopy,
 }: {
   value: string;
   className?: string;
   icon?: LucideIcon;
   successMessage?: string;
+  onCopy?: () => void;
 } & VariantProps<typeof copyButtonVariants>) {
   const [copied, copyToClipboard] = useCopyToClipboard();
   const Comp = icon || Copy;
@@ -42,6 +44,7 @@ export function CopyButton({
         toast.promise(copyToClipboard(value), {
           success: successMessage || "Copied to clipboard!",
         });
+        onCopy?.();
       }}
       className={cn(copyButtonVariants({ variant }), className)}
       type="button"

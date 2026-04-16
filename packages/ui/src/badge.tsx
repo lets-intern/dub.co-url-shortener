@@ -19,6 +19,7 @@ const badgeVariants = cva(
           "bg-gradient-to-r from-blue-100 via-blue-100/50 to-blue-100 border border-blue-200 text-blue-900",
         rainbow:
           "bg-gradient-to-r from-violet-600 to-pink-600 text-white border-transparent",
+        outline: "border-neutral-300 bg-transparent text-neutral-700",
       },
     },
     defaultVariants: {

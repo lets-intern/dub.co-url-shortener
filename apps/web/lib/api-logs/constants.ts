@@ -98,7 +98,7 @@ export const API_LOGS_PRESETS_BY_RETENTION: Record<number, string[]> = {
 // Default when plan is missing from workspace data (should not happen for known plans).
 export const DEFAULT_RETENTION_DAYS = 30;
 
-export const METHOD_BADGE_VARIANTS: Record<string, string> = {
+export const METHOD_BADGE_VARIANTS: Record<string, "new" | "error" | "success" | "pending" | "warning" | "neutral"> = {
   POST: "new",
   PATCH: "warning",
   PUT: "pending",

@@ -14,23 +14,23 @@ import { useMemo } from "react";
 const displayStatusMap = {
   approved: {
     label: "Approved",
-    variant: "success",
+    variant: "success" as const,
   },
   pending: {
     label: "Pending approval",
-    variant: "new",
+    variant: "new" as const,
   },
   inProgress: {
     label: "In progress",
-    variant: "pending",
+    variant: "pending" as const,
   },
   draft: {
     label: "Draft",
-    variant: "pending",
+    variant: "pending" as const,
   },
   rejected: {
     label: "Rejected",
-    variant: "error",
+    variant: "error" as const,
   },
 };
 

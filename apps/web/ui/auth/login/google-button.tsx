@@ -1,6 +1,8 @@
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@dub/ui";
 import { Google } from "@dub/ui/icons";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useContext } from "react";
 import { LoginFormContext } from "./login-form";
@@ -16,13 +18,15 @@ export function GoogleButton({ next }: { next?: string }) {
     <Button
       text="Continue with Google"
       variant="secondary"
-      onClick={() => {
+      onClick={async () => {
         setClickedMethod("google");
         setLastUsedAuthMethod("google");
-        signIn("google", {
-          ...(finalNext && finalNext.length > 0
-            ? { callbackUrl: finalNext }
-            : {}),
+        const supabase = createClient();
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/api/auth/callback${finalNext ? `?next=${encodeURIComponent(finalNext)}` : ""}`,
+          },
         });
       }}
       loading={clickedMethod === "google"}

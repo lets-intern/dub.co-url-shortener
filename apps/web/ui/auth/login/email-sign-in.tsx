@@ -1,13 +1,13 @@
-import { checkAccountExistsAction } from "@/lib/actions/check-account-exists";
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
 import { Button, Input, useMediaQuery } from "@dub/ui";
 import { cn } from "@dub/utils";
-import { signIn } from "next-auth/react";
-import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useContext, useState } from "react";
 import { toast } from "sonner";
-import { errorCodes, LoginFormContext } from "./login-form";
+import { LoginFormContext } from "./login-form";
 
 export const EmailSignIn = ({ next }: { next?: string }) => {
   const router = useRouter();
@@ -16,6 +16,7 @@ export const EmailSignIn = ({ next }: { next?: string }) => {
   const { isMobile } = useMediaQuery();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const {
     showPasswordField,
@@ -28,99 +29,68 @@ export const EmailSignIn = ({ next }: { next?: string }) => {
     setShowSSOOption,
   } = useContext(LoginFormContext);
 
-  const { executeAsync, isPending } = useAction(checkAccountExistsAction, {
-    onError: ({ error }) => {
-      toast.error(error.serverError);
-    },
-  });
+  const supabase = createClient();
 
   return (
     <>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          setLoading(true);
 
-          // Check if the user can enter a password, and if so display the field
-          if (!showPasswordField) {
-            const result = await executeAsync({ email });
-
-            if (!result?.data) {
-              return;
-            }
-
-            const { accountExists, hasPassword, requireSAML } = result.data;
-
-            if (requireSAML) {
-              setClickedMethod(undefined);
-              toast.error(
-                "Your organization requires authentication through your company's identity provider.",
-              );
-              return;
-            }
-
-            if (accountExists && hasPassword) {
+          try {
+            // If password field is not shown yet, show it
+            if (!showPasswordField && authMethod === "email") {
               setShowPasswordField(true);
+              setLoading(false);
               return;
             }
 
-            if (!accountExists) {
-              setClickedMethod(undefined);
-              toast.error("No account found with that email address.");
-              return;
-            }
-          }
+            setClickedMethod("email");
 
-          setClickedMethod("email");
+            if (password) {
+              // Sign in with email + password
+              const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              });
 
-          const result = await executeAsync({ email });
+              if (error) {
+                toast.error(error.message);
+                setClickedMethod(undefined);
+                setLoading(false);
+                return;
+              }
 
-          if (!result?.data) {
-            return;
-          }
-
-          const { accountExists, hasPassword } = result.data;
-
-          if (!accountExists) {
-            setClickedMethod(undefined);
-            toast.error("No account found with that email address.");
-            return;
-          }
-
-          const provider = password && hasPassword ? "credentials" : "email";
-
-          const response = await signIn(provider, {
-            email,
-            redirect: false,
-            callbackUrl: finalNext || "/workspaces",
-            ...(password && { password }),
-          });
-
-          if (!response) {
-            return;
-          }
-
-          if (!response.ok && response.error) {
-            if (errorCodes[response.error]) {
-              toast.error(errorCodes[response.error]);
+              setLastUsedAuthMethod("email");
+              router.push(finalNext || "/workspaces");
+              router.refresh();
             } else {
-              toast.error(response.error);
+              // Sign in with magic link (OTP)
+              const { error } = await supabase.auth.signInWithOtp({
+                email,
+                options: {
+                  emailRedirectTo: `${window.location.origin}/api/auth/callback${finalNext ? `?next=${encodeURIComponent(finalNext)}` : ""}`,
+                },
+              });
+
+              if (error) {
+                toast.error(error.message);
+                setClickedMethod(undefined);
+                setLoading(false);
+                return;
+              }
+
+              setLastUsedAuthMethod("email");
+              toast.success("Magic link sent — check your inbox!");
+              setEmail("");
+              setClickedMethod(undefined);
             }
-
+          } catch {
+            toast.error("An unexpected error occurred. Please try again.");
             setClickedMethod(undefined);
-            return;
-          }
-
-          setLastUsedAuthMethod("email");
-
-          if (provider === "email") {
-            toast.success("Email sent - check your inbox!");
-            setEmail("");
-            setClickedMethod(undefined);
-            return;
-          }
-
-          if (provider === "credentials") {
-            router.push(response?.url || finalNext || "/workspaces");
+          } finally {
+            setLoading(false);
           }
         }}
         className="flex flex-col gap-y-6"
@@ -143,9 +113,6 @@ export const EmailSignIn = ({ next }: { next?: string }) => {
               size={1}
               className={cn(
                 "block w-full min-w-0 appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-black focus:outline-none focus:ring-black sm:text-sm",
-                {
-                  "pr-10": isPending,
-                },
               )}
             />
           </label>
@@ -184,7 +151,7 @@ export const EmailSignIn = ({ next }: { next?: string }) => {
               setAuthMethod("email");
             },
           })}
-          loading={clickedMethod === "email" || isPending}
+          loading={clickedMethod === "email" || loading}
           disabled={clickedMethod && clickedMethod !== "email"}
         />
       </form>

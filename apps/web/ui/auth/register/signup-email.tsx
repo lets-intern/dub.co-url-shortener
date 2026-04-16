@@ -1,31 +1,25 @@
 "use client";
 
-import { sendOtpAction } from "@/lib/actions/send-otp";
-import { signUpSchema } from "@/lib/zod/schemas/auth";
+import { createClient } from "@/lib/supabase/client";
 import { PasswordRequirements } from "@/ui/shared/password-requirements";
 import { Button, Input, useMediaQuery } from "@dub/ui";
-import { useAction } from "next-safe-action/hooks";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import * as z from "zod/v4";
-import { useRegisterContext } from "./context";
 
-type SignUpProps = z.infer<typeof signUpSchema>;
+type SignUpProps = {
+  email: string;
+  password: string;
+};
 
 export const SignUpEmail = () => {
   const { isMobile } = useMediaQuery();
-
-  const { setStep, setEmail, setPassword, email, lockEmail } =
-    useRegisterContext();
-
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const form = useForm<SignUpProps>({
-    defaultValues: {
-      email,
-    },
-  });
+  const form = useForm<SignUpProps>();
 
   const {
     register,
@@ -33,21 +27,6 @@ export const SignUpEmail = () => {
     formState: { errors },
     getValues,
   } = form;
-
-  const { executeAsync, isPending } = useAction(sendOtpAction, {
-    onSuccess: () => {
-      setEmail(getValues("email"));
-      setPassword(getValues("password"));
-      setStep("verify");
-    },
-    onError: ({ error }) => {
-      toast.error(
-        error.serverError ||
-          error.validationErrors?.email?.[0] ||
-          error.validationErrors?.password?.[0],
-      );
-    },
-  });
 
   const onSubmit = useCallback(
     (e: FormEvent) => {
@@ -60,9 +39,35 @@ export const SignUpEmail = () => {
         return;
       }
 
-      handleSubmit(async (data) => await executeAsync(data))(e);
+      handleSubmit(async (data) => {
+        setLoading(true);
+        try {
+          const supabase = createClient();
+          const { error } = await supabase.auth.signUp({
+            email: data.email,
+            password: data.password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+            },
+          });
+
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+
+          toast.success(
+            "Account created! Check your email to verify your account.",
+          );
+          router.push("/login");
+        } catch {
+          toast.error("An unexpected error occurred.");
+        } finally {
+          setLoading(false);
+        }
+      })(e);
     },
-    [getValues, showPassword, handleSubmit, executeAsync],
+    [getValues, showPassword, handleSubmit, router],
   );
 
   return (
@@ -77,8 +82,7 @@ export const SignUpEmail = () => {
             placeholder="panic@thedis.co"
             autoComplete="email"
             required
-            readOnly={!errors.email && lockEmail}
-            autoFocus={!isMobile && !showPassword && !lockEmail}
+            autoFocus={!isMobile && !showPassword}
             {...register("email")}
             error={errors.email?.message}
           />
@@ -103,9 +107,9 @@ export const SignUpEmail = () => {
         )}
         <Button
           type="submit"
-          text={isPending ? "Submitting..." : "Sign Up"}
-          disabled={isPending}
-          loading={isPending}
+          text={loading ? "Submitting..." : "Sign Up"}
+          disabled={loading}
+          loading={loading}
         />
       </div>
     </form>

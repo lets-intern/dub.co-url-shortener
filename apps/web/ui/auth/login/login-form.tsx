@@ -14,9 +14,7 @@ import {
 import { toast } from "sonner";
 import { AuthMethodsSeparator } from "../auth-methods-separator";
 import { EmailSignIn } from "./email-sign-in";
-import { GitHubButton } from "./github-button";
 import { GoogleButton } from "./google-button";
-import { SSOSignIn } from "./sso-sign-in";
 
 export const authMethods = [
   "google",
@@ -118,17 +116,9 @@ export default function LoginForm({
       props: { next },
     },
     {
-      method: "github",
-      component: GitHubButton,
-    },
-    {
       method: "email",
       component: EmailSignIn,
       props: { next },
-    },
-    {
-      method: "saml",
-      component: SSOSignIn,
     },
   ];
 
