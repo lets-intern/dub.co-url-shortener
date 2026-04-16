@@ -121,7 +121,7 @@ async function processWebhookEvent(event: any) {
         slug: "hubspot",
       },
       credentials: {
-        path: "$.hub_id",
+        path: ["hub_id"],
         equals: portalId,
       },
     },

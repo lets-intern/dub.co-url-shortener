@@ -1,5 +1,13 @@
-import { OG_AVATAR_URL, R2_URL, fetchWithTimeout } from "@dub/utils";
-import { AwsClient } from "aws4fetch";
+import { OG_AVATAR_URL, fetchWithTimeout } from "@dub/utils";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+);
+
+// Supabase Storage base URL for public files
+const SUPABASE_STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public`;
 
 interface imageOptions {
   contentType?: string;
@@ -11,17 +19,6 @@ interface imageOptions {
 type BucketType = "public" | "private";
 
 class StorageClient {
-  private client: AwsClient;
-
-  constructor() {
-    this.client = new AwsClient({
-      accessKeyId: process.env.STORAGE_ACCESS_KEY_ID || "",
-      secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY || "",
-      service: "s3",
-      region: "auto",
-    });
-  }
-
   async upload({
     key,
     body,
@@ -33,12 +30,16 @@ class StorageClient {
     opts?: imageOptions;
     bucket?: BucketType;
   }) {
-    let uploadBody;
+    let uploadBody: Blob | Buffer;
+    let contentType = opts?.contentType || "application/octet-stream";
+
     if (typeof body === "string") {
       if (this.isBase64(body)) {
         uploadBody = this.base64ToArrayBuffer(body, opts);
+        contentType = opts?.contentType || "image/png";
       } else if (this.isUrl(body)) {
         uploadBody = await this.urlToBlob(body, opts);
+        contentType = uploadBody.type || contentType;
       } else {
         throw new Error("Invalid input: Not a base64 string or a valid URL");
       }
@@ -46,36 +47,23 @@ class StorageClient {
       uploadBody = body;
     }
 
-    const headers = {
-      "Content-Length": uploadBody.size.toString(),
-      ...opts?.headers,
-    };
+    const bucketName = this._getBucketName(bucket);
 
-    if (opts?.contentType) {
-      headers["Content-Type"] = opts.contentType;
-    }
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .upload(key, uploadBody, {
+        contentType,
+        upsert: true,
+      });
 
-    try {
-      const response = await this.client.fetch(
-        `${process.env.STORAGE_ENDPOINT}/${this._getBucketName(bucket)}/${key}`,
-        {
-          method: "PUT",
-          headers,
-          body: uploadBody,
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(response.statusText);
-      }
-
-      return {
-        url: `${R2_URL}/${key}`,
-      };
-    } catch (error) {
+    if (error) {
       console.error("storage.upload failed", error);
       throw new Error("Failed to upload file. Please try again later.");
     }
+
+    return {
+      url: `${SUPABASE_STORAGE_URL}/${bucketName}/${key}`,
+    };
   }
 
   async delete({
@@ -85,18 +73,11 @@ class StorageClient {
     key: string;
     bucket?: BucketType;
   }) {
-    try {
-      const response = await this.client.fetch(
-        `${process.env.STORAGE_ENDPOINT}/${this._getBucketName(bucket)}/${key}`,
-        {
-          method: "DELETE",
-        },
-      );
+    const bucketName = this._getBucketName(bucket);
 
-      if (!response.ok) {
-        throw new Error(response.statusText);
-      }
-    } catch (error) {
+    const { error } = await supabase.storage.from(bucketName).remove([key]);
+
+    if (error) {
       console.error("storage.delete failed", error);
       throw new Error("Failed to delete file. Please try again later.");
     }
@@ -107,7 +88,6 @@ class StorageClient {
     method,
     expiresIn,
     bucket,
-    headers,
   }: {
     key: string;
     method: "PUT" | "GET";
@@ -115,27 +95,36 @@ class StorageClient {
     expiresIn: number;
     headers?: Record<string, string>;
   }) {
-    const url = new URL(
-      `${process.env.STORAGE_ENDPOINT}/${this._getBucketName(bucket)}/${key}`,
-    );
+    const bucketName = this._getBucketName(bucket);
 
-    url.searchParams.set("X-Amz-Expires", String(expiresIn));
+    if (method === "GET") {
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .createSignedUrl(key, expiresIn);
 
-    try {
-      const response = await this.client.sign(url, {
-        method,
-        headers,
-        aws: {
-          signQuery: true,
-          allHeaders: true,
-        },
-      });
+      if (error || !data) {
+        console.error("storage.getSignedUrl failed", error);
+        throw new Error(
+          "Failed to generate signed url. Please try again later.",
+        );
+      }
 
-      return response.url;
-    } catch (error) {
-      console.error("storage.getSignedUrl failed", error);
-      throw new Error("Failed to generate signed url. Please try again later.");
+      return data.signedUrl;
     }
+
+    // For PUT (upload), create a signed upload URL
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .createSignedUploadUrl(key);
+
+    if (error || !data) {
+      console.error("storage.getSignedUrl failed", error);
+      throw new Error(
+        "Failed to generate signed url. Please try again later.",
+      );
+    }
+
+    return data.signedUrl;
   }
 
   async getSignedUploadUrl(opts: {
@@ -145,22 +134,11 @@ class StorageClient {
     contentLength?: number;
     contentType?: string;
   }) {
-    const headers: Record<string, string> = {};
-
-    if (opts.contentLength) {
-      headers["Content-Length"] = String(opts.contentLength);
-    }
-
-    if (opts.contentType) {
-      headers["Content-Type"] = opts.contentType;
-    }
-
     return await this.getSignedUrl({
       key: opts.key,
       method: "PUT",
       bucket: opts.bucket || "public",
       expiresIn: opts.expiresIn || 600,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
     });
   }
 
@@ -241,23 +219,11 @@ class StorageClient {
 
   private _getBucketName(bucket: BucketType) {
     if (bucket === "public") {
-      const bucketName = process.env.STORAGE_PUBLIC_BUCKET;
-
-      if (!bucketName) {
-        throw new Error("STORAGE_PUBLIC_BUCKET is not set");
-      }
-
-      return bucketName;
+      return process.env.STORAGE_PUBLIC_BUCKET || "dub-public";
     }
 
     if (bucket === "private") {
-      const bucketName = process.env.STORAGE_PRIVATE_BUCKET;
-
-      if (!bucketName) {
-        throw new Error("STORAGE_PRIVATE_BUCKET is not set");
-      }
-
-      return bucketName;
+      return process.env.STORAGE_PRIVATE_BUCKET || "dub-private";
     }
 
     throw new Error(`Invalid bucket type: ${bucket}`);
@@ -267,7 +233,9 @@ class StorageClient {
 export const storage = new StorageClient();
 
 export const isStored = (url: string) => {
-  return url.startsWith(R2_URL) || url.startsWith(OG_AVATAR_URL);
+  return (
+    url.startsWith(SUPABASE_STORAGE_URL) || url.startsWith(OG_AVATAR_URL)
+  );
 };
 
 export const isNotHostedImage = (imageString: string) => {
