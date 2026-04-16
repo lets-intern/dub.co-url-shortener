@@ -4,6 +4,10 @@
   "version": "0.0.10",
   "main": "index.ts",
   "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./tailwind.config": "./tailwind.config.ts"
+  },
   "devDependencies": {
     "tailwindcss": "^3.4.4"
   },
